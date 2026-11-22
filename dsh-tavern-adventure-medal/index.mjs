@@ -36,9 +36,9 @@ const NS = 'dsh-tavern-adventure-medal'
 const CARD_FIELDS = ['description', 'personality', 'scenario', 'first_mes', 'mes_example']
 const ACHIEVEMENTS = [
   { id: 'bronze', rounds: 100, title: '渐入佳境' },
-  { id: 'silver', rounds: 300, title: '酒馆熟客' },
-  { id: 'gold', rounds: 500, title: '故事收藏家' },
-  { id: 'rainbow', rounds: 1000, title: '千轮留名' },
+  { id: 'silver', rounds: 300, title: '全程高能' },
+  { id: 'gold', rounds: 500, title: '名场面制造机' },
+  { id: 'rainbow', rounds: 1000, title: '这局直接封神' },
 ]
 const NOTIFICATION_TTL_MS = 8000
 const MAX_COVER_BYTES = 150_000
