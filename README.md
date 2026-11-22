@@ -18,8 +18,6 @@
 
 使用支持成就库的旧版酒馆时，可上传 [dsh-tavern-adventure-medal.zip](./dsh-tavern-adventure-medal.zip) 并按提示重启。
 
-想试效果时，打开一段游玩对话，再到「设置 → 酒馆启动器 → 成就测试」选择档位。测试只预览弹窗和卡牌。
-
 ## 酒馆发行副本
 
 酒馆发行版将本仓库的 `dsh-tavern-adventure-medal/` 放入 `tavern-plugin/packages/`。共用卡面的 `launcher-assets/` 同步到 `tavern-plugin/packages/dsh-tavern/assets/`，因此切换回原版 DSH 后，酒馆启动器仍能展示已解锁的卡牌。
