@@ -1,6 +1,6 @@
 {
   "name": "dsh-tavern-adventure-medal",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "在 DSH Tavern 首次达成冒险成就时提示，并在酒馆启动器里记录成就。",
   "private": true,
   "type": "module",

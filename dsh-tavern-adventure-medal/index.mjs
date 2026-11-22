@@ -537,6 +537,14 @@ function achievementChat(row) {
   return Boolean(row?.sessionId) && ['story', 'script'].includes(row.mode || 'story') && row.requestMode !== 'sillytavern'
 }
 
+async function previewAchievement(dataRoot, { gameId, id } = {}) {
+  const tier = ACHIEVEMENTS.find(item => item.id === id)
+  if (!tier || !gameId) return null
+  const row = (await readIndex(dataRoot)).find(chat => chat?.sessionId === gameId)
+  if (!achievementChat(row) || await isAutomationTestChat(dataRoot, row)) return null
+  return { ...tier, cardName: str(row.cardName), unlockedAt: Date.now() }
+}
+
 function createAchievementRecorder(tavern, dataRoot) {
   let ledger
   let tail = Promise.resolve()
@@ -623,10 +631,15 @@ export function apply(ctx) {
     'adventure-medal: counts handler',
   )
   if (['onTurnSettled', 'readPluginData', 'savePluginData', 'publishState'].some(method => typeof tavern[method] !== 'function')) return
-  const achievements = createAchievementRecorder(tavern, resolveDataRoot())
+  const dataRoot = resolveDataRoot()
+  const achievements = createAchievementRecorder(tavern, dataRoot)
   ctx.effect(
     () => tavern.handle(NS + '/claim-achievement', achievements.claim),
     'adventure-medal: claim achievement notification',
+  )
+  ctx.effect(
+    () => tavern.handle(NS + '/preview-achievement', args => previewAchievement(dataRoot, args)),
+    'adventure-medal: preview achievement',
   )
   ctx.effect(() => {
     void achievements.initialize().catch(error => console.warn('[adventure-medal] 成就库初始化失败:', error.message))

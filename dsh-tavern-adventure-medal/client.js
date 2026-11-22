@@ -2,20 +2,21 @@ window.__ModuleLoader__.load({
   id: 'dsh-tavern-adventure-medal',
   factory() {
     const name = 'dsh-tavern-adventure-medal'
+    const PREVIEW_EVENT = 'dsh-tavern-adventure-medal:preview'
     const DISPLAY_MS = 4200
     const EXIT_MS = 180
     const styles = `
 .adventure-achievement {
   position: fixed;
   z-index: 2100;
-  right: max(16px, env(safe-area-inset-right, 0px));
-  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  inset: auto max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) auto;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 12px;
   width: max-content;
   max-width: calc(100vw - 40px);
+  margin: 0;
   padding: 12px 16px 12px 12px;
   border: 1px solid #e4bf714f;
   border-radius: 12px;
@@ -70,6 +71,7 @@ window.__ModuleLoader__.load({
         let unwatch
         let toast
         let timer
+        let previewRequest = 0
 
         function clearToast() {
           window.clearTimeout(timer)
@@ -77,7 +79,7 @@ window.__ModuleLoader__.load({
           toast = undefined
         }
 
-        function show(achievement) {
+        function show(achievement, aboveSettings = false) {
           clearToast()
           toast = document.createElement('div')
           toast.className = 'adventure-achievement'
@@ -96,7 +98,11 @@ window.__ModuleLoader__.load({
           title.className = 'adventure-achievement-title'
           title.textContent = achievement.title
           toast.append(mark, copy)
+          if (aboveSettings && typeof toast.showPopover === 'function') {
+            toast.setAttribute('popover', 'manual')
+          }
           document.body.append(toast)
+          if (toast.hasAttribute('popover')) toast.showPopover()
           copy.append(label, title)
           timer = window.setTimeout(() => {
             toast.dataset.leaving = ''
@@ -118,11 +124,28 @@ window.__ModuleLoader__.load({
           }) : undefined
         }
 
+        function preview(event) {
+          const { id, complete } = event.detail || {}
+          if (typeof id !== 'string' || typeof complete !== 'function') return
+          event.preventDefault()
+          const selectedGame = mainGameId(sessions)
+          const request = ++previewRequest
+          if (!selectedGame) return complete(null)
+          void ui.callHost(name + '/preview-achievement', { gameId: selectedGame, id }).then(achievement => {
+            if (disposed || request !== previewRequest) return
+            if (!achievement || mainGameId(sessions) !== selectedGame) return complete(null)
+            show(achievement, true)
+            complete(achievement)
+          }, () => { if (!disposed && request === previewRequest) complete(null) })
+        }
+
         const unsubscribe = sessions.list.subscribe(followGame)
+        window.addEventListener(PREVIEW_EVENT, preview)
         followGame()
         return () => {
           disposed = true
           unsubscribe()
+          window.removeEventListener(PREVIEW_EVENT, preview)
           unwatch?.()
           clearToast()
           style.remove()

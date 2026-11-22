@@ -22,7 +22,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const data = join(home, 'profile-data', 'tavern', 'data')
   await mkdir(join(data, 'automation'), { recursive: true })
   await writeFile(join(data, 'automation', testSession + '.json'), JSON.stringify({ sessionId: testSession }))
-  const rows = [chat('old', 300), chat('a', 499), chat('card', 1200, { mode: 'card' }), chat(testSession, 2000)]
+  const rows = [chat('old', 300, { cardName: '测试卡乙' }), chat('a', 499, { cardName: '测试卡甲' }), chat('card', 1200, { mode: 'card' }), chat(testSession, 2000)]
   const writeIndex = () => writeFile(join(data, 'index.json'), JSON.stringify({ chats: rows }))
   await writeIndex()
 
@@ -41,7 +41,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
         publishState: async state => { states.push(state) },
       },
     })
-    return { settle, claim: handlers.get(name + '/claim-achievement') }
+    return { settle, claim: handlers.get(name + '/claim-achievement'), preview: handlers.get(name + '/preview-achievement') }
   }
 
   const initialized = new Promise(resolve => { notifySaved = resolve })
@@ -50,6 +50,17 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const earned = () => saved.achievements.filter(tier => tier.earned)
   assert.deepEqual(earned().map(tier => [tier.rounds, tier.unlockedAt]), [[100, null], [300, null]])
   assert.deepEqual(states, [])
+  const beforePreview = structuredClone(saved)
+  const rainbow = await first.preview({ gameId: 'a', id: 'rainbow' })
+  assert.equal(rainbow.cardName, '测试卡甲')
+  assert.equal(rainbow.rounds, 1000)
+  assert.equal((await first.preview({ gameId: 'old', id: 'gold' })).cardName, '测试卡乙')
+  assert.equal(await first.preview({ gameId: 'card', id: 'rainbow' }), null)
+  assert.equal(await first.preview({ gameId: testSession, id: 'rainbow' }), null)
+  assert.equal(await first.preview({ gameId: 'a', id: 'missing' }), null)
+  assert.deepEqual(saved, beforePreview)
+  assert.deepEqual(states, [])
+  assert.equal(first.claim({ gameId: 'a', id: 'rainbow' }), null)
   await first.settle({ gameId: 'a' })
   await first.settle({ gameId: 'card' })
   await first.settle({ gameId: testSession })
