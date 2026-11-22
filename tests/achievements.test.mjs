@@ -48,7 +48,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   `)
   await mkdir(join(data, 'automation'), { recursive: true })
   await writeFile(join(data, 'automation', testSession + '.json'), JSON.stringify({ sessionId: testSession }))
-  const cardA = { cardName: '测试卡甲', cardPath: 'a.webp' }
+  const cardA = { cardName: '测试卡甲', cardPath: 'a.webp', createdAt: Date.UTC(2026, 9, 25) }
   const cardB = { cardName: '测试卡乙', cardPath: 'b.webp' }
   const coverA = 'UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEALmk0mk0iIiIiIgBoSygABc6zbAAA'
   const coverB = 'UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA='
@@ -93,6 +93,8 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(rainbow.cover, coverUrl(coverA))
   assert.equal(rainbow.rounds, 1000)
   assert.equal(rainbow.contextChars, 6)
+  assert.equal(rainbow.turnCount, 499)
+  assert.equal(rainbow.startedAt, cardA.createdAt)
   const goldPreview = await first.preview({ gameId: 'old', id: 'gold' })
   assert.equal(goldPreview.cardName, '测试卡乙')
   assert.equal(goldPreview.cover, coverUrl(coverB))
@@ -122,6 +124,8 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(gold.cover, coverUrl(coverA))
   assert.equal(gold.cardName, '测试卡甲')
   assert.equal(gold.contextChars, 9)
+  assert.equal(gold.turnCount, 500)
+  assert.equal(gold.startedAt, cardA.createdAt)
   assert.ok(gold.unlockedAt > 0)
   assert.equal(first.claim({ gameId: 'a', id: 'gold' }), null)
 

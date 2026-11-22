@@ -26,9 +26,9 @@ window.__ModuleLoader__.load({
       },
     }
     const styles = `
+@import url('/profile-bridge/achievement-art.css');
 .adventure-celebration {
   --adventure-trim: #ffd9ae;
-  --adventure-badge-offset: 0%;
   --adventure-aura: radial-gradient(ellipse, #ffae5966, #dc6e3129 50%, transparent 72%);
   position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center;
   box-sizing: border-box; width: auto; height: auto; margin: 0; padding: 0; border: 0;
@@ -40,18 +40,15 @@ window.__ModuleLoader__.load({
 }
 .adventure-celebration[data-tier="silver"] {
   --adventure-trim: #d9eeff;
-  --adventure-badge-offset: 33.3333%;
   --adventure-aura: radial-gradient(ellipse, #98c9ff70, #768dff29 48%, transparent 71%);
 }
 .adventure-celebration[data-tier="gold"] {
   --adventure-trim: #ffe298;
-  --adventure-badge-offset: 66.6667%;
   --adventure-aura: radial-gradient(ellipse, #fff1a98c, #fdb4513d 37%, transparent 70%),
     repeating-conic-gradient(from 7deg, #ffd37966 0deg, transparent 7deg 18deg);
 }
 .adventure-celebration[data-tier="rainbow"] {
   --adventure-trim: #ffe1f6;
-  --adventure-badge-offset: 100%;
   --adventure-aura: conic-gradient(from 35deg, #e294ff76, #95cdff82, #8ff7d37c, #ffe08c7d, #fba4ba83, #e294ff76);
 }
 .adventure-celebration-aura {
@@ -65,83 +62,9 @@ window.__ModuleLoader__.load({
   mask-image: radial-gradient(circle closest-side, transparent 64%, #000 65% 66%, transparent 67% 74%, #000 75% 76%, transparent 77%);
 }
 .adventure-celebration-card {
-  position: relative; z-index: 1; isolation: isolate; overflow: hidden; container-type: inline-size;
-  display: flex; flex-direction: column; justify-content: end; align-items: center;
-  box-sizing: border-box; width: min(376px, calc(100vw - 32px), 65dvh); aspect-ratio: 3 / 4;
-  padding: clamp(12px, 3vh, 22px);
-  border: 1px solid color-mix(in srgb, var(--adventure-trim) 78%, transparent);
-  border-radius: 20px; text-align: center; color: #fff3e1;
-  background: radial-gradient(ellipse at 50% 28%, #896248, transparent 72%), linear-gradient(145deg, #34404d, #221624);
-  box-shadow: 0 18px 64px #09071099, 0 0 32px color-mix(in srgb, var(--adventure-trim) 32%, transparent);
+  position: relative; z-index: 1; width: min(420px, calc(100vw - 32px), 65dvh);
+  aspect-ratio: 3 / 4; pointer-events: none;
 }
-.adventure-celebration-cover {
-  position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 34%;
-}
-.adventure-celebration-card::before {
-  content: ''; position: absolute; z-index: -1; inset: 0;
-  background: linear-gradient(180deg, #100b1706 25%, #17111c0d 46%, #17111c91 73%, #140e18e8 100%);
-}
-.adventure-celebration-card:not([data-cover]) {
-  background: url('/profile-bridge/achievement-paper.webp') center / cover no-repeat, #a67e61;
-}
-.adventure-celebration-card:not([data-cover])::before {
-  background: linear-gradient(180deg, transparent 44%, #75441c29 64%, #472c258c 100%);
-}
-.adventure-celebration-card::after {
-  content: ''; position: absolute; inset: 7px; border: 1px solid #fff1d77d; border-radius: 14px;
-  box-shadow: inset 0 0 0 1px #49342130; pointer-events: none;
-}
-.adventure-celebration-crest {
-  position: relative; display: grid; place-items: center; width: 31%; max-width: 100px;
-  margin-bottom: clamp(4px, 1.7cqi, 8px); flex: none;
-}
-.adventure-celebration-crest::before, .adventure-celebration-crest::after {
-  content: ''; position: absolute; width: 15%; aspect-ratio: 1; background: var(--adventure-trim);
-  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-}
-.adventure-celebration-crest::before { left: -24%; top: 22%; }
-.adventure-celebration-crest::after { left: -12%; bottom: 20%; width: 9%; background: #ffc0bb; }
-.adventure-celebration-medal { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 7px #150a12aa); }
-.adventure-celebration-star { color: #ffe2a6; font-size: clamp(27px, 25cqi, 68px); line-height: 1; }
-.adventure-celebration-badge {
-  position: absolute; top: -3%; left: 91%; display: grid; place-items: center; width: 60%; aspect-ratio: 1;
-  background: url('/profile-bridge/achievement-badges.webp') var(--adventure-badge-offset) center / 400% 100% no-repeat;
-  filter: drop-shadow(0 2px 4px #24171682); color: #543725; font: 800 clamp(7px, 4cqi, 13px) / 1.2 system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-.adventure-celebration-badge b { background: #fff7ec; border-radius: 99px; padding-inline: .13em; }
-.adventure-celebration-copy { display: grid; gap: 6px; width: 100%; min-width: 0; line-height: 1.22; }
-.adventure-celebration-plaque {
-  display: grid; justify-items: center; gap: 2px; border: 1px solid #f4c17f; border-radius: 13px;
-  padding: clamp(5px, 2.5cqi, 10px) 6px;
-  background: linear-gradient(155deg, #fffaed, #f4e4c9);
-  background: linear-gradient(155deg, #fffaed, color-mix(in srgb, var(--adventure-trim) 32%, #f4e4c9));
-  box-shadow: inset 0 0 0 2px #fff7e49e, 0 3px 11px #35201461; color: #4d2b20;
-}
-.adventure-celebration-label {
-  color: #73513b; font-size: clamp(9px, 3.4cqi, 11px); font-weight: 700;
-  letter-spacing: .12em;
-}
-.adventure-celebration-title {
-  font-family: 'Songti SC', 'Noto Serif SC', 'SimSun', serif; font-size: clamp(17px, 11cqi, 31px); font-weight: 800;
-}
-.adventure-celebration-description {
-  color: #694334; font-size: clamp(10px, 4.4cqi, 14px); font-weight: 650; font-variant-numeric: tabular-nums;
-}
-.adventure-celebration-record {
-  display: grid; align-items: center; gap: 4px;
-  padding: 6px 9px; border: 1px solid #fff1dc6e; border-radius: 10px;
-  background: linear-gradient(145deg, #553e34dd, #372b38d9); color: #fff5e6;
-  box-shadow: inset 0 1px #fff6e637; text-align: left; backdrop-filter: blur(6px);
-}
-.adventure-celebration-character {
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  font-size: clamp(10px, 4.35cqi, 14px); font-weight: 650;
-}
-.adventure-celebration-char-row { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-.adventure-celebration-character + .adventure-celebration-char-row { border-top: 1px solid #fff1dc30; padding-top: 4px; }
-.adventure-celebration-chars-label { color: #f4dfc6; font-size: clamp(9px, 3.8cqi, 12px); }
-.adventure-celebration-chars { font-size: clamp(10px, 4.2cqi, 13px); font-variant-numeric: tabular-nums; }
 .adventure-celebration-shine {
   position: absolute; z-index: 2; inset: -8%;
   background: linear-gradient(110deg, transparent 35%, #fff7df22 44%, #fffcf19c 49%, #fff2ca35 53%, transparent 63%);
@@ -191,9 +114,9 @@ window.__ModuleLoader__.load({
         let timer
         let previewRequest = 0
 
-        function element(tag, part, text) {
+        function element(tag, part, text, family = 'adventure-celebration') {
           const node = document.createElement(tag)
-          node.className = 'adventure-celebration' + (part ? '-' + part : '')
+          node.className = family + (part ? '-' + part : '')
           if (text !== undefined) node.textContent = text
           return node
         }
@@ -288,51 +211,60 @@ window.__ModuleLoader__.load({
           const aura = element('div', 'aura')
           aura.setAttribute('aria-hidden', 'true')
           const card = element('section', 'card')
+          card.classList.add('achievement-art')
           card.dataset.tier = achievement.id
           card.setAttribute('role', 'status')
           card.setAttribute('aria-atomic', 'true')
+          const art = (tag, part, content) => element(tag, part, content, 'achievement-art')
           if (achievement.cover) {
-            const cover = element('img', 'cover')
+            const cover = art('img', 'cover')
             cover.alt = ''
-            card.dataset.cover = ''
-            cover.addEventListener('error', () => { delete card.dataset.cover; cover.remove() }, { once: true })
             cover.src = achievement.cover
+            cover.addEventListener('error', () => cover.remove(), { once: true })
             card.append(cover)
           }
-          const crest = element('div', 'crest')
-          crest.setAttribute('aria-hidden', 'true')
-          const medal = element('img', 'medal')
+          const motto = art('span', 'motto', '愿每一次冒险，都有星光作伴')
+          motto.setAttribute('aria-hidden', 'true')
+          const medal = art('img', 'medal')
           medal.alt = ''
-          medal.width = 218
-          medal.height = 280
-          medal.addEventListener('error', () => {
-            const star = element('span', 'star', '★')
-            star.setAttribute('aria-hidden', 'true')
-            medal.replaceWith(star)
-          }, { once: true })
           medal.src = '/profile-bridge/achievement-medal.webp'
-          const badge = element('span', 'badge')
-          const milestone = achievement.rounds.toLocaleString()
-          badge.append(element('b', 'badge-number', achievement.rounds))
-          crest.append(medal, badge)
-          const copy = element('div', 'copy')
-          const plaque = element('div', 'plaque')
-          plaque.append(
-            element('span', 'label', preview ? '成就预览' : '成就解锁'),
-            element('strong', 'title', achievement.title),
-            element('span', 'description', `达成 ${milestone} 轮冒险`),
-          )
-          copy.append(plaque)
-          const record = element('div', 'record')
-          if (achievement.cardName) record.append(element('span', 'character', achievement.cardName))
-          if (Number.isSafeInteger(achievement.contextChars) && achievement.contextChars >= 0) {
-            const chars = element('div', 'char-row')
-            chars.append(element('span', 'chars-label', '总字数'), document.createTextNode(' '),
-              element('b', 'chars', `${achievement.contextChars.toLocaleString()} 字`))
-            record.append(chars)
+          medal.addEventListener('error', () => medal.remove(), { once: true })
+          const stars = art('div', 'stars')
+          for (let i = 0; i < 6; i++) stars.append(document.createElement('span'))
+          stars.setAttribute('aria-hidden', 'true')
+          const badge = art('span', 'badge', achievement.rounds)
+          badge.setAttribute('aria-hidden', 'true')
+          const ribbon = art('div', 'ribbon')
+          ribbon.append(art('strong', 'title', achievement.title),
+            art('span', 'congratulations', `恭喜你达成了${achievement.rounds}轮的成就！`))
+          const pills = art('div', 'pills')
+          const number = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—'
+          const date = ms => typeof ms === 'number' && ms > 0 && ms <= 8.64e15
+            ? new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms).replaceAll('-', '.') : '—'
+          const words = number(achievement.contextChars)
+          for (const [icon, label, value] of [
+            ['name', '冒险者', achievement.cardName || '—'],
+            ['turns', '冒险轮数', number(achievement.turnCount)],
+            ['words', '酒馆记忆', words === '—' ? words : words + ' 字'],
+            ['date', '开始冒险', date(achievement.startedAt)],
+          ]) {
+            const pill = art('div', 'pill')
+            const symbol = art('span', 'icon')
+            symbol.dataset.icon = icon
+            symbol.setAttribute('aria-hidden', 'true')
+            const field = art('span', 'pill-value', value)
+            if (icon === 'name') field.title = value
+            pill.append(symbol, art('span', 'pill-label', label), field)
+            pills.append(pill)
           }
-          if (record.childElementCount) copy.append(record)
-          card.append(crest, copy)
+          const progress = art('div', 'progress')
+          const sticker = art('div', 'sticker')
+          sticker.append(document.createTextNode('已达成'), art('b', 'sticker-number', achievement.rounds),
+            document.createTextNode('轮成就！'))
+          progress.append(art('div', 'progress-label', (achievement.id === 'rainbow' ? '最高成就' : '当前成就') + ' · ' + achievement.title), sticker)
+          progress.setAttribute('aria-hidden', 'true')
+          const footer = art('div', 'footer', (preview ? '成就预览' : 'DSHTavern 冒险纪念') + ' · ' + date(achievement.unlockedAt))
+          card.append(motto, medal, stars, badge, ribbon, pills, progress, footer)
           layer.append(shade, aura, card)
           if (typeof layer.showPopover === 'function') layer.setAttribute('popover', 'manual')
           document.body.append(layer)

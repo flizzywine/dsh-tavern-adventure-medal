@@ -568,9 +568,13 @@ function createAchievementSnapshot(dataRoot) {
     const cardPath = str(row.cardPath)
     const cardName = str(row.cardName) || stripExtension(fileName(cardPath))
     const [cover, chat] = await Promise.all([readCover(cardPath), fullChat])
+    const startedAt = safeNumber(row.createdAt) || safeNumber(chat?.createdAt)
+    const hasTurns = Number.isFinite(row.preview?.turnCount) || Array.isArray(chat?.messages)
     return {
       ...(cardName ? { cardName } : {}),
       ...(cover ? { cover } : {}),
+      ...(startedAt > 0 && startedAt <= 8.64e15 ? { startedAt } : {}),
+      ...(hasTurns ? { turnCount: displayTurns(chat ?? row, row.preview).turnCount } : {}),
       ...(Array.isArray(chat?.messages) ? { contextChars: contextCharsOf(chat) } : {}),
     }
   }
