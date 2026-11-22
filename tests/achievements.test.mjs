@@ -92,7 +92,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(rainbow.cardName, '测试卡甲')
   assert.equal(rainbow.cover, coverUrl(coverA))
   assert.equal(rainbow.rounds, 1000)
-  assert.equal(rainbow.title, '这局直接封神')
+  assert.equal(rainbow.title, '神话')
   assert.equal(rainbow.contextChars, 6)
   assert.equal(rainbow.turnCount, 499)
   assert.equal(rainbow.startedAt, cardA.createdAt)
@@ -121,7 +121,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.deepEqual(states, [{ gameId: 'a', name: 'achievement', data: { id: 'gold' } }])
   assert.equal(first.claim({ gameId: 'a', id: 'silver' }), null)
   const gold = first.claim({ gameId: 'a', id: 'gold' })
-  assert.equal(gold.title, '名场面制造机')
+  assert.equal(gold.title, '史诗')
   assert.equal(gold.cover, coverUrl(coverA))
   assert.equal(gold.cardName, '测试卡甲')
   assert.equal(gold.contextChars, 9)
@@ -151,7 +151,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const fourTiers = saved.achievements.filter(tier => tier.id !== 'starter')
   saved = { version: 1, achievements: fourTiers }
   await start().settle({ gameId: 'not-a-chat' })
-  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '开局就上头', earned: true, unlockedAt: null })
+  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '佳作', earned: true, unlockedAt: null })
   assert.deepEqual(saved.achievements.slice(1), fourTiers)
   assert.equal(states.length, 1)
 
@@ -173,5 +173,5 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   await writeIndex()
   await lowest.settle({ gameId: 'a' })
   assert.deepEqual(states.at(-1), { gameId: 'a', name: 'achievement', data: { id: 'starter' } })
-  assert.equal(lowest.claim({ gameId: 'a', id: 'starter' }).title, '开局就上头')
+  assert.equal(lowest.claim({ gameId: 'a', id: 'starter' }).title, '佳作')
 })

@@ -35,11 +35,11 @@ export const inject = ['tavern']
 const NS = 'dsh-tavern-adventure-medal'
 const CARD_FIELDS = ['description', 'personality', 'scenario', 'first_mes', 'mes_example']
 const ACHIEVEMENTS = [
-  { id: 'starter', rounds: 50, title: '开局就上头' },
-  { id: 'bronze', rounds: 100, title: '百轮火力全开' },
-  { id: 'silver', rounds: 300, title: '全程高能' },
-  { id: 'gold', rounds: 500, title: '名场面制造机' },
-  { id: 'rainbow', rounds: 1000, title: '这局直接封神' },
+  { id: 'starter', rounds: 50, title: '佳作' },
+  { id: 'bronze', rounds: 100, title: '名篇' },
+  { id: 'silver', rounds: 300, title: '传奇' },
+  { id: 'gold', rounds: 500, title: '史诗' },
+  { id: 'rainbow', rounds: 1000, title: '神话' },
 ]
 const NOTIFICATION_TTL_MS = 8000
 const MAX_COVER_BYTES = 150_000
