@@ -120,7 +120,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.deepEqual(states, [{ gameId: 'a', name: 'achievement', data: { id: 'gold' } }])
   assert.equal(first.claim({ gameId: 'a', id: 'silver' }), null)
   const gold = first.claim({ gameId: 'a', id: 'gold' })
-  assert.equal(gold.title, '酒馆传说')
+  assert.equal(gold.title, '故事收藏家')
   assert.equal(gold.cover, coverUrl(coverA))
   assert.equal(gold.cardName, '测试卡甲')
   assert.equal(gold.contextChars, 9)

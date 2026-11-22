@@ -223,7 +223,7 @@ window.__ModuleLoader__.load({
             cover.addEventListener('error', () => cover.remove(), { once: true })
             card.append(cover)
           }
-          const motto = art('span', 'motto', '愿每一次冒险，都有星光作伴')
+          const motto = art('span', 'motto', '愿每一次游玩，都有星光作伴')
           motto.setAttribute('aria-hidden', 'true')
           const medal = art('img', 'medal')
           medal.alt = ''
@@ -236,17 +236,17 @@ window.__ModuleLoader__.load({
           badge.setAttribute('aria-hidden', 'true')
           const ribbon = art('div', 'ribbon')
           ribbon.append(art('strong', 'title', achievement.title),
-            art('span', 'congratulations', `恭喜你达成了${achievement.rounds}轮的成就！`))
+            art('span', 'congratulations', `这局游玩满 ${achievement.rounds} 轮啦！`))
           const pills = art('div', 'pills')
           const number = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—'
           const date = ms => typeof ms === 'number' && ms > 0 && ms <= 8.64e15
             ? new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms).replaceAll('-', '.') : '—'
           const words = number(achievement.contextChars)
           for (const [icon, label, value] of [
-            ['name', '冒险者', achievement.cardName || '—'],
-            ['turns', '冒险轮数', number(achievement.turnCount)],
-            ['words', '酒馆记忆', words === '—' ? words : words + ' 字'],
-            ['date', '开始冒险', date(achievement.startedAt)],
+            ['name', '人物卡', achievement.cardName || '—'],
+            ['turns', '游玩轮数', number(achievement.turnCount)],
+            ['words', '总字数', words === '—' ? words : words + ' 字'],
+            ['date', '开始游玩', date(achievement.startedAt)],
           ]) {
             const pill = art('div', 'pill')
             const symbol = art('span', 'icon')
@@ -259,11 +259,11 @@ window.__ModuleLoader__.load({
           }
           const progress = art('div', 'progress')
           const sticker = art('div', 'sticker')
-          sticker.append(document.createTextNode('已达成'), art('b', 'sticker-number', achievement.rounds),
-            document.createTextNode('轮成就！'))
+          sticker.append(document.createTextNode('游玩满'), art('b', 'sticker-number', achievement.rounds),
+            document.createTextNode('轮！'))
           progress.append(art('div', 'progress-label', (achievement.id === 'rainbow' ? '最高成就' : '当前成就') + ' · ' + achievement.title), sticker)
           progress.setAttribute('aria-hidden', 'true')
-          const footer = art('div', 'footer', (preview ? '成就预览' : 'DSHTavern 冒险纪念') + ' · ' + date(achievement.unlockedAt))
+          const footer = art('div', 'footer', (preview ? '成就预览' : 'DSH Tavern 游玩纪念') + ' · ' + date(achievement.unlockedAt))
           card.append(motto, medal, stars, badge, ribbon, pills, progress, footer)
           layer.append(shade, aura, card)
           if (typeof layer.showPopover === 'function') layer.setAttribute('popover', 'manual')

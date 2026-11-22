@@ -3,11 +3,11 @@
 // 旧版奖牌的只读接口仍可用。新版在游玩结算时写入全局成就进度。
 //
 //   1. dsh-tavern-adventure-medal/list
-//      列出角色卡 + 每张卡下的冒险存档（来自酒馆的 index.json），
-//      以及入口 render 拿到的 sessionId 对应的「当前冒险」。
+//      列出角色卡 + 每张卡下的游玩存档（来自酒馆的 index.json），
+//      以及入口 render 拿到的 sessionId 对应的「当前游玩」。
 //
 //   2. dsh-tavern-adventure-medal/stats
-//      读取指定存档的冒险轮数（与酒馆列表同口径）、正文码点数、角色卡持久上下文字数。
+//      读取指定存档的游玩轮数（与酒馆列表同口径）、正文码点数、角色卡持久上下文字数。
 //
 //   3. dsh-tavern-adventure-medal/counts
 //      按需读出某张卡下每段存档的轮数（同口径），供选择器列表显示。
@@ -35,10 +35,10 @@ export const inject = ['tavern']
 const NS = 'dsh-tavern-adventure-medal'
 const CARD_FIELDS = ['description', 'personality', 'scenario', 'first_mes', 'mes_example']
 const ACHIEVEMENTS = [
-  { id: 'bronze', rounds: 100, title: '小有名气' },
-  { id: 'silver', rounds: 300, title: '传奇冒险者' },
-  { id: 'gold', rounds: 500, title: '酒馆传说' },
-  { id: 'rainbow', rounds: 1000, title: '不朽传说' },
+  { id: 'bronze', rounds: 100, title: '渐入佳境' },
+  { id: 'silver', rounds: 300, title: '酒馆熟客' },
+  { id: 'gold', rounds: 500, title: '故事收藏家' },
+  { id: 'rainbow', rounds: 1000, title: '千轮留名' },
 ]
 const NOTIFICATION_TTL_MS = 8000
 const MAX_COVER_BYTES = 150_000
@@ -122,7 +122,7 @@ async function readIndex(dataRoot) {
       if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 40))
     }
   }
-  throw Object.assign(new Error('酒馆的冒险名册暂时打不开'), {
+  throw Object.assign(new Error('酒馆的游玩记录暂时打不开'), {
     code: 'ADVENTURE_MEDAL_INDEX',
     cause: lastError,
   })
@@ -228,7 +228,7 @@ function displayTurns(chat, preview) {
 /**
  * 酒馆的会话列表会跳过 API 测试会话：sessionId 形如 test-<uuid>，
  * 且 automation/<sessionId>.json 的 owner 就是它自己。插件照抄这条规则，
- * 免得把测试残留的存档当成玩家的一段冒险列出来。
+ * 免得把测试残留的存档混进玩家的游玩记录。
  */
 const AUTOMATION_SESSION_ID = /^test-[0-9a-f-]{36}$/i
 
@@ -262,7 +262,7 @@ function lastPlayedOf(chat) {
 }
 
 function chatSummary(chat, cardName) {
-  const name = str(chat?.title) || str(cardName) || '未命名冒险'
+  const name = str(chat?.title) || str(cardName) || '未命名对话'
   const turns = displayTurns(chat, chat?.preview)
   return {
     chatId: str(chat?.id),
@@ -280,7 +280,7 @@ function chatSummary(chat, cardName) {
   }
 }
 
-/** 角色卡 + 每张卡下的冒险存档；只包含 story/script，不含卡片工作台。 */
+/** 角色卡 + 每张卡下的游玩存档；只包含 story/script，不含卡片工作台。 */
 async function listPayload(tavern, sessionId) {
   const dataRoot = resolveDataRoot()
   const chats = await readIndex(dataRoot)
@@ -325,7 +325,7 @@ async function listPayload(tavern, sessionId) {
     group.chats.push(chatSummary(chat, group.name))
   }
 
-  // 没有冒险存档的卡也列出来，选择器里显示「暂无存档」。
+  // 没有游玩存档的卡也列出来，选择器里显示「暂无存档」。
   for (const card of cards) {
     if (!card || typeof card.id !== 'string' || !card.id) continue
     if (!groups.has(card.id)) {
@@ -432,10 +432,10 @@ async function readCardForChat(tavern, chat) {
 }
 
 /**
- * 读取一段冒险的统计。
- * - 冒险轮数：与酒馆列表同一个口径（index.json 的 preview.turnCount；没有时按
+ * 读取这局的游玩统计。
+ * - 游玩轮数：与酒馆列表同一个口径（index.json 的 preview.turnCount；没有时按
  *   酒馆公式「最大轮次编号 − 开场白」现算），所以两边不会出现两个数。
- * - 酒馆记忆：所有消息正文（sourceText ?? text）的码点总数，AI 与玩家都算。
+ * - 总字数：所有消息正文（sourceText ?? text）的码点总数，AI 与玩家都算。
  * - 持久上下文（角色卡五字段码点）仍然返回，但奖牌上不再展示。
  */
 async function statsPayload(tavern, args) {
@@ -445,7 +445,7 @@ async function statsPayload(tavern, args) {
   const chats = await readIndex(dataRoot)
   const chat = chats.find(item => str(item?.id) === chatId) || chats.find(item => str(item?.sessionId) === sessionId)
   if (!chat) {
-    throw Object.assign(new Error('没有找到这段冒险的存档'), { code: 'ADVENTURE_MEDAL_NOT_FOUND' })
+    throw Object.assign(new Error('没有找到这个游玩存档'), { code: 'ADVENTURE_MEDAL_NOT_FOUND' })
   }
 
   const gameId = str(chat.sessionId) || sessionId
@@ -496,7 +496,7 @@ async function statsPayload(tavern, args) {
     }
 
     if (historyError && history.length === 0 && expectedTurns > 0) {
-      throw Object.assign(new Error('这段冒险的正文暂时读不出来'), {
+      throw Object.assign(new Error('暂时读不到这局的对话正文'), {
         code: 'ADVENTURE_MEDAL_HISTORY',
         cause: historyError,
       })
@@ -608,7 +608,10 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
     if (ledger) return ledger
     const stored = await tavern.readPluginData()
     if (stored?.version === 1 && Array.isArray(stored.achievements)) {
-      ledger = stored
+      ledger = { ...stored, achievements: stored.achievements.map(tier => {
+        const current = ACHIEVEMENTS.find(item => item.id === tier?.id)
+        return current ? { ...tier, title: current.title } : tier
+      }) }
       return ledger
     }
     if (stored != null) throw new Error('无法读取该版本的成就库')
