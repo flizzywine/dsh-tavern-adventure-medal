@@ -20,9 +20,35 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
     await rm(home, { recursive: true, force: true })
   })
   const data = join(home, 'profile-data', 'tavern', 'data')
+  const runtime = join(home, 'apps', 'dsh-tavern')
+  const domain = join(runtime, 'tavern-plugin', 'lib', 'domain')
+  const encoder = join(runtime, 'node_modules', 'sharp')
+  await mkdir(domain, { recursive: true })
+  await mkdir(encoder, { recursive: true })
+  await writeFile(join(runtime, 'package.json'), '{"type":"module"}')
+  await writeFile(join(domain, 'chat-journal-store.js'), '')
+  await writeFile(join(domain, 'file-resources.js'), `
+    import { readFile } from 'node:fs/promises'
+    import { join } from 'node:path'
+    export const createFileResourceStore = ({ dataRoot }) => ({
+      cardImagePreview: cardPath => ({ read: () => readFile(join(dataRoot, cardPath)) })
+    })
+  `)
+  await writeFile(join(encoder, 'index.js'), `
+    module.exports = bytes => ({
+      resize: () => ({ webp: () => ({ toBuffer: async () => bytes }) })
+    })
+  `)
   await mkdir(join(data, 'automation'), { recursive: true })
   await writeFile(join(data, 'automation', testSession + '.json'), JSON.stringify({ sessionId: testSession }))
-  const rows = [chat('old', 300, { cardName: '测试卡乙' }), chat('a', 499, { cardName: '测试卡甲' }), chat('card', 1200, { mode: 'card' }), chat(testSession, 2000)]
+  const cardA = { cardName: '测试卡甲', cardPath: 'a.webp' }
+  const cardB = { cardName: '测试卡乙', cardPath: 'b.webp' }
+  const coverA = 'UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEALmk0mk0iIiIiIgBoSygABc6zbAAA'
+  const coverB = 'UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA='
+  const coverUrl = cover => 'data:image/webp;base64,' + cover
+  await writeFile(join(data, cardA.cardPath), Buffer.from(coverA, 'base64'))
+  await writeFile(join(data, cardB.cardPath), Buffer.from(coverB, 'base64'))
+  const rows = [chat('old', 300, cardB), chat('a', 499, cardA), chat('card', 1200, { mode: 'card' }), chat(testSession, 2000)]
   const writeIndex = () => writeFile(join(data, 'index.json'), JSON.stringify({ chats: rows }))
   await writeIndex()
 
@@ -53,8 +79,11 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const beforePreview = structuredClone(saved)
   const rainbow = await first.preview({ gameId: 'a', id: 'rainbow' })
   assert.equal(rainbow.cardName, '测试卡甲')
+  assert.equal(rainbow.cover, coverUrl(coverA))
   assert.equal(rainbow.rounds, 1000)
-  assert.equal((await first.preview({ gameId: 'old', id: 'gold' })).cardName, '测试卡乙')
+  const goldPreview = await first.preview({ gameId: 'old', id: 'gold' })
+  assert.equal(goldPreview.cardName, '测试卡乙')
+  assert.equal(goldPreview.cover, coverUrl(coverB))
   assert.equal(await first.preview({ gameId: 'card', id: 'rainbow' }), null)
   assert.equal(await first.preview({ gameId: testSession, id: 'rainbow' }), null)
   assert.equal(await first.preview({ gameId: 'a', id: 'missing' }), null)
@@ -66,7 +95,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   await first.settle({ gameId: testSession })
   assert.deepEqual(states, [])
 
-  rows[1] = chat('a', 500)
+  rows[1] = chat('a', 500, cardA)
   await writeIndex()
   await first.settle({ gameId: 'a', greeting: true })
   assert.deepEqual(states, [])
@@ -75,11 +104,18 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(first.claim({ gameId: 'a', id: 'silver' }), null)
   const gold = first.claim({ gameId: 'a', id: 'gold' })
   assert.equal(gold.title, '酒馆传说')
+  assert.equal(gold.cover, coverUrl(coverA))
+  assert.equal(gold.cardName, '测试卡甲')
   assert.ok(gold.unlockedAt > 0)
   assert.equal(first.claim({ gameId: 'a', id: 'gold' }), null)
 
+  await writeFile(join(data, cardA.cardPath), Buffer.from(coverB, 'base64'))
   const restarted = start()
   await restarted.settle({ gameId: 'a' })
+  assert.equal((await restarted.preview({ gameId: 'a', id: 'gold' })).cover, coverUrl(coverB))
+  assert.deepEqual(earned().at(-1), gold)
+  await rm(join(data, cardA.cardPath))
+  assert.equal((await restarted.preview({ gameId: 'a', id: 'gold' })).cover, undefined)
   assert.equal(restarted.claim({ gameId: 'a', id: 'gold' }), null)
   assert.equal(states.length, 1)
   assert.deepEqual(earned().map(tier => tier.rounds), [100, 300, 500])

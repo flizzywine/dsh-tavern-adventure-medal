@@ -24,6 +24,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -40,6 +41,7 @@ const ACHIEVEMENTS = [
   { id: 'rainbow', rounds: 1000, title: '不朽传说' },
 ]
 const NOTIFICATION_TTL_MS = 8000
+const MAX_COVER_BYTES = 150_000
 
 function str(value) {
   return typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value)
@@ -537,15 +539,46 @@ function achievementChat(row) {
   return Boolean(row?.sessionId) && ['story', 'script'].includes(row.mode || 'story') && row.requestMode !== 'sillytavern'
 }
 
-async function previewAchievement(dataRoot, { gameId, id } = {}) {
+function createAchievementArtwork(dataRoot) {
+  let coverReader
+  async function openCoverReader() {
+    const source = resolveAppSource(dataRoot)
+    if (!source) return null
+    const resourcesFile = path.join(source, 'tavern-plugin', 'lib', 'domain', 'file-resources.js')
+    const { createFileResourceStore } = await import(pathToFileURL(resourcesFile).href)
+    const resources = createFileResourceStore({ dataRoot })
+    const sharp = createRequire(resourcesFile)('sharp')
+    return async cardPath => {
+      const cover = await resources.cardImagePreview(cardPath)
+      if (!cover) return undefined
+      const bytes = await sharp(await cover.read(), { limitInputPixels: 40_000_000 })
+        .resize({ width: 480, height: 720, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82 }).toBuffer()
+      return bytes.length <= MAX_COVER_BYTES ? 'data:image/webp;base64,' + bytes.toString('base64') : undefined
+    }
+  }
+
+  return async row => {
+    const cardPath = str(row.cardPath)
+    const cardName = str(row.cardName) || stripExtension(fileName(cardPath))
+    let cover
+    if (cardPath) {
+      coverReader ??= openCoverReader().catch(() => null)
+      try { cover = await (await coverReader)?.(cardPath) } catch { /* The source cover may have been removed. */ }
+    }
+    return { ...(cardName ? { cardName } : {}), ...(cover ? { cover } : {}) }
+  }
+}
+
+async function previewAchievement(dataRoot, artwork, { gameId, id } = {}) {
   const tier = ACHIEVEMENTS.find(item => item.id === id)
   if (!tier || !gameId) return null
   const row = (await readIndex(dataRoot)).find(chat => chat?.sessionId === gameId)
   if (!achievementChat(row) || await isAutomationTestChat(dataRoot, row)) return null
-  return { ...tier, cardName: str(row.cardName), unlockedAt: Date.now() }
+  return { ...tier, unlockedAt: Date.now(), ...await artwork(row) }
 }
 
-function createAchievementRecorder(tavern, dataRoot) {
+function createAchievementRecorder(tavern, dataRoot, artwork) {
   let ledger
   let tail = Promise.resolve()
   const notifications = new Map()
@@ -589,11 +622,11 @@ function createAchievementRecorder(tavern, dataRoot) {
       const { turnCount } = row.preview?.turnCount === undefined
         ? displayTurns(await readFullChat(dataRoot, row.id))
         : displayTurns(row, row.preview)
-      const unlockedAt = Date.now()
-      const achievements = current.achievements.map(tier =>
-        !tier.earned && turnCount >= tier.rounds ? { ...tier, earned: true, unlockedAt } : tier)
+      const qualifies = tier => !tier.earned && turnCount >= tier.rounds
+      if (!current.achievements.some(qualifies)) return
+      const unlock = { earned: true, unlockedAt: Date.now(), ...await artwork(row) }
+      const achievements = current.achievements.map(tier => qualifies(tier) ? { ...tier, ...unlock } : tier)
       const newest = achievements.findLast((tier, i) => tier !== current.achievements[i])
-      if (!newest) return
 
       const saved = { version: 1, achievements }
       await tavern.savePluginData({ data: saved })
@@ -632,13 +665,14 @@ export function apply(ctx) {
   )
   if (['onTurnSettled', 'readPluginData', 'savePluginData', 'publishState'].some(method => typeof tavern[method] !== 'function')) return
   const dataRoot = resolveDataRoot()
-  const achievements = createAchievementRecorder(tavern, dataRoot)
+  const artwork = createAchievementArtwork(dataRoot)
+  const achievements = createAchievementRecorder(tavern, dataRoot, artwork)
   ctx.effect(
     () => tavern.handle(NS + '/claim-achievement', achievements.claim),
     'adventure-medal: claim achievement notification',
   )
   ctx.effect(
-    () => tavern.handle(NS + '/preview-achievement', args => previewAchievement(dataRoot, args)),
+    () => tavern.handle(NS + '/preview-achievement', args => previewAchievement(dataRoot, artwork, args)),
     'adventure-medal: preview achievement',
   )
   ctx.effect(() => {
