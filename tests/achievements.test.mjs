@@ -10,7 +10,7 @@ const chat = (sessionId, turnCount, extra = {}) => ({
   id: 'chat-' + sessionId, sessionId, mode: 'story', preview: { turnCount }, ...extra,
 })
 
-test('旧档只补成就，实时首次达成只发一次，重启后仍保留', async t => {
+test('旧档和未记时的补发记录不授予成就，真实解锁只发一次并保留', async t => {
   const home = await mkdtemp(join(tmpdir(), 'achievement-home-'))
   const previousHome = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -63,7 +63,8 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   await writeChat(0, [])
   await writeChat(1, messages)
 
-  let saved, notifySaved
+  let saved = { version: 1, achievements: [{ id: 'starter', title: '佳作', rounds: 50, earned: true, unlockedAt: null }] }
+  let notifySaved
   const states = []
   function start() {
     const handlers = new Map()
@@ -86,10 +87,10 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const first = start()
   await initialized
   const earned = () => saved.achievements.filter(tier => tier.earned)
-  assert.deepEqual(earned().map(tier => [tier.rounds, tier.unlockedAt]), [[50, null], [100, null], [300, null]])
+  assert.deepEqual(earned(), [])
+  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '佳作', earned: false, unlockedAt: null })
   assert.deepEqual(states, [])
   assert.equal(first.claim({ gameId: 'a', id: 'rainbow' }), null)
-  await first.settle({ gameId: 'a' })
   await first.settle({ gameId: 'card' })
   await first.settle({ gameId: testSession })
   assert.deepEqual(states, [])
@@ -128,19 +129,18 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const fourTiers = saved.achievements.filter(tier => tier.id !== 'starter')
   saved = { version: 1, achievements: fourTiers }
   await start().settle({ gameId: 'not-a-chat' })
-  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '佳作', earned: true, unlockedAt: null })
+  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '佳作', earned: false, unlockedAt: null })
   assert.deepEqual(saved.achievements.slice(1), fourTiers)
   assert.equal(states.length, 1)
 
   const lockedFourTiers = fourTiers.map(({ id, rounds, title }) => ({ id, rounds, title, earned: false, unlockedAt: null }))
   saved = { version: 1, achievements: lockedFourTiers }
-  rows.splice(0, rows.length, chat('a', 50, cardA))
+  rows.splice(0, rows.length, chat('a', 69, cardA))
   await writeIndex()
   await start().settle({ gameId: 'not-a-chat' })
-  assert.deepEqual(earned().map(tier => tier.rounds), [50], 'A qualifying save is enough to backfill the new tier')
-  assert.equal(states.length, 1, 'Backfill is silent')
+  assert.deepEqual(earned(), [], 'An existing save alone does not unlock a new tier')
+  assert.equal(states.length, 1)
 
-  saved.achievements[0] = { ...saved.achievements[0], earned: false }
   rows[0] = chat('a', 49, cardA)
   await writeIndex()
   const lowest = start()
