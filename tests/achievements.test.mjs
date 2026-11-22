@@ -26,7 +26,14 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   await mkdir(domain, { recursive: true })
   await mkdir(encoder, { recursive: true })
   await writeFile(join(runtime, 'package.json'), '{"type":"module"}')
-  await writeFile(join(domain, 'chat-journal-store.js'), '')
+  await writeFile(join(domain, 'chat-journal-store.js'), `
+    import { readFile } from 'node:fs/promises'
+    import { join } from 'node:path'
+    export const createChatJournalStore = ({ dataRoot }) => ({
+      read: async id => JSON.parse(await readFile(join(dataRoot, id + '.json'), 'utf8'))
+    })
+  `)
+  await writeFile(join(runtime, 'tavern-plugin', 'lib', 'profile-data-store.js'), 'export const createProfileDataStore = () => ({})')
   await writeFile(join(domain, 'file-resources.js'), `
     import { readFile } from 'node:fs/promises'
     import { join } from 'node:path'
@@ -50,7 +57,11 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   await writeFile(join(data, cardB.cardPath), Buffer.from(coverB, 'base64'))
   const rows = [chat('old', 300, cardB), chat('a', 499, cardA), chat('card', 1200, { mode: 'card' }), chat(testSession, 2000)]
   const writeIndex = () => writeFile(join(data, 'index.json'), JSON.stringify({ chats: rows }))
+  const writeChat = (index, messages) => writeFile(join(data, rows[index].id + '.json'), JSON.stringify({ messages }))
+  const messages = [{ role: 'assistant', sourceText: '开场🌙', text: '不同的渲染文本' }, { role: 'user', text: '继续吧' }]
   await writeIndex()
+  await writeChat(0, [])
+  await writeChat(1, messages)
 
   let saved, notifySaved
   const states = []
@@ -81,9 +92,11 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(rainbow.cardName, '测试卡甲')
   assert.equal(rainbow.cover, coverUrl(coverA))
   assert.equal(rainbow.rounds, 1000)
+  assert.equal(rainbow.contextChars, 6)
   const goldPreview = await first.preview({ gameId: 'old', id: 'gold' })
   assert.equal(goldPreview.cardName, '测试卡乙')
   assert.equal(goldPreview.cover, coverUrl(coverB))
+  assert.equal(goldPreview.contextChars, 0)
   assert.equal(await first.preview({ gameId: 'card', id: 'rainbow' }), null)
   assert.equal(await first.preview({ gameId: testSession, id: 'rainbow' }), null)
   assert.equal(await first.preview({ gameId: 'a', id: 'missing' }), null)
@@ -97,6 +110,8 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
 
   rows[1] = chat('a', 500, cardA)
   await writeIndex()
+  messages.push({ role: 'assistant', text: '新回复' })
+  await writeChat(1, messages)
   await first.settle({ gameId: 'a', greeting: true })
   assert.deepEqual(states, [])
   await Promise.all([first.settle({ gameId: 'a' }), first.settle({ gameId: 'a' })])
@@ -106,16 +121,24 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(gold.title, '酒馆传说')
   assert.equal(gold.cover, coverUrl(coverA))
   assert.equal(gold.cardName, '测试卡甲')
+  assert.equal(gold.contextChars, 9)
   assert.ok(gold.unlockedAt > 0)
   assert.equal(first.claim({ gameId: 'a', id: 'gold' }), null)
 
   await writeFile(join(data, cardA.cardPath), Buffer.from(coverB, 'base64'))
+  messages.push({ role: 'user', text: '好' })
+  await writeChat(1, messages)
   const restarted = start()
   await restarted.settle({ gameId: 'a' })
-  assert.equal((await restarted.preview({ gameId: 'a', id: 'gold' })).cover, coverUrl(coverB))
+  const updatedPreview = await restarted.preview({ gameId: 'a', id: 'gold' })
+  assert.equal(updatedPreview.cover, coverUrl(coverB))
+  assert.equal(updatedPreview.contextChars, 10)
   assert.deepEqual(earned().at(-1), gold)
   await rm(join(data, cardA.cardPath))
-  assert.equal((await restarted.preview({ gameId: 'a', id: 'gold' })).cover, undefined)
+  await rm(join(data, rows[1].id + '.json'))
+  const missing = await restarted.preview({ gameId: 'a', id: 'gold' })
+  assert.equal(missing.cover, undefined)
+  assert.equal(missing.contextChars, undefined)
   assert.equal(restarted.claim({ gameId: 'a', id: 'gold' }), null)
   assert.equal(states.length, 1)
   assert.deepEqual(earned().map(tier => tier.rounds), [100, 300, 500])

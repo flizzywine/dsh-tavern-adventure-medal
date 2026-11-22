@@ -173,12 +173,12 @@ async function getChatStore(dataRoot) {
   return await promise
 }
 
-async function readFullChat(dataRoot, chatId) {
+async function readFullChat(dataRoot, chatId, { fresh = false } = {}) {
   const id = str(chatId)
   if (!id) return null
   const key = dataRoot + '\u0000' + id
   const cached = fullChatCache.get(key)
-  if (cached && Date.now() - cached.at < 60000) return cached.chat
+  if (!fresh && cached && Date.now() - cached.at < 60000) return cached.chat
   const store = await getChatStore(dataRoot)
   if (!store || typeof store.read !== 'function') return null
   const chat = await store.read(id)
@@ -539,7 +539,7 @@ function achievementChat(row) {
   return Boolean(row?.sessionId) && ['story', 'script'].includes(row.mode || 'story') && row.requestMode !== 'sillytavern'
 }
 
-function createAchievementArtwork(dataRoot) {
+function createAchievementSnapshot(dataRoot) {
   let coverReader
   async function openCoverReader() {
     const source = resolveAppSource(dataRoot)
@@ -558,27 +558,38 @@ function createAchievementArtwork(dataRoot) {
     }
   }
 
-  return async row => {
+  async function readCover(cardPath) {
+    if (!cardPath) return undefined
+    coverReader ??= openCoverReader().catch(() => null)
+    try { return await (await coverReader)?.(cardPath) } catch { return undefined }
+  }
+
+  return async (row, fullChat = readAchievementChat(dataRoot, row)) => {
     const cardPath = str(row.cardPath)
     const cardName = str(row.cardName) || stripExtension(fileName(cardPath))
-    let cover
-    if (cardPath) {
-      coverReader ??= openCoverReader().catch(() => null)
-      try { cover = await (await coverReader)?.(cardPath) } catch { /* The source cover may have been removed. */ }
+    const [cover, chat] = await Promise.all([readCover(cardPath), fullChat])
+    return {
+      ...(cardName ? { cardName } : {}),
+      ...(cover ? { cover } : {}),
+      ...(Array.isArray(chat?.messages) ? { contextChars: contextCharsOf(chat) } : {}),
     }
-    return { ...(cardName ? { cardName } : {}), ...(cover ? { cover } : {}) }
   }
 }
 
-async function previewAchievement(dataRoot, artwork, { gameId, id } = {}) {
+function readAchievementChat(dataRoot, row) {
+  // A recent preview may have populated the stats cache before this turn was saved.
+  return readFullChat(dataRoot, row.id, { fresh: true }).catch(() => null)
+}
+
+async function previewAchievement(dataRoot, snapshot, { gameId, id } = {}) {
   const tier = ACHIEVEMENTS.find(item => item.id === id)
   if (!tier || !gameId) return null
   const row = (await readIndex(dataRoot)).find(chat => chat?.sessionId === gameId)
   if (!achievementChat(row) || await isAutomationTestChat(dataRoot, row)) return null
-  return { ...tier, unlockedAt: Date.now(), ...await artwork(row) }
+  return { ...tier, unlockedAt: Date.now(), ...await snapshot(row) }
 }
 
-function createAchievementRecorder(tavern, dataRoot, artwork) {
+function createAchievementRecorder(tavern, dataRoot, snapshot) {
   let ledger
   let tail = Promise.resolve()
   const notifications = new Map()
@@ -619,12 +630,11 @@ function createAchievementRecorder(tavern, dataRoot, artwork) {
       if (current.achievements.every(tier => tier.earned)) return
       const row = (await readIndex(dataRoot)).find(chat => chat?.sessionId === event.gameId)
       if (!achievementChat(row) || await isAutomationTestChat(dataRoot, row)) return
-      const { turnCount } = row.preview?.turnCount === undefined
-        ? displayTurns(await readFullChat(dataRoot, row.id))
-        : displayTurns(row, row.preview)
+      const fullChat = row.preview?.turnCount === undefined ? await readAchievementChat(dataRoot, row) : undefined
+      const { turnCount } = displayTurns(fullChat ?? row, row.preview)
       const qualifies = tier => !tier.earned && turnCount >= tier.rounds
       if (!current.achievements.some(qualifies)) return
-      const unlock = { earned: true, unlockedAt: Date.now(), ...await artwork(row) }
+      const unlock = { earned: true, unlockedAt: Date.now(), ...await snapshot(row, fullChat) }
       const achievements = current.achievements.map(tier => qualifies(tier) ? { ...tier, ...unlock } : tier)
       const newest = achievements.findLast((tier, i) => tier !== current.achievements[i])
 
@@ -665,14 +675,14 @@ export function apply(ctx) {
   )
   if (['onTurnSettled', 'readPluginData', 'savePluginData', 'publishState'].some(method => typeof tavern[method] !== 'function')) return
   const dataRoot = resolveDataRoot()
-  const artwork = createAchievementArtwork(dataRoot)
-  const achievements = createAchievementRecorder(tavern, dataRoot, artwork)
+  const snapshot = createAchievementSnapshot(dataRoot)
+  const achievements = createAchievementRecorder(tavern, dataRoot, snapshot)
   ctx.effect(
     () => tavern.handle(NS + '/claim-achievement', achievements.claim),
     'adventure-medal: claim achievement notification',
   )
   ctx.effect(
-    () => tavern.handle(NS + '/preview-achievement', args => previewAchievement(dataRoot, artwork, args)),
+    () => tavern.handle(NS + '/preview-achievement', args => previewAchievement(dataRoot, snapshot, args)),
     'adventure-medal: preview achievement',
   )
   ctx.effect(() => {
