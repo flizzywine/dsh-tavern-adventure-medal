@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { apply, name } from '../dsh-tavern-adventure-medal/index.mjs'
+import { apply, name } from '../dsh-tavern-adventure-medal/lib/index.js'
 
 const testSession = 'test-00000000-0000-0000-0000-000000000000'
 const chat = (sessionId, turnCount, extra = {}) => ({

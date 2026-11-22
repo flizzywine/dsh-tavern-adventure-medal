@@ -14,8 +14,14 @@
 
 ## 安装
 
-在 DSH Tavern 的「设置 → DSH Tavern → 插件」上传 [dsh-tavern-adventure-medal.zip](./dsh-tavern-adventure-medal.zip)，按提示重启。成就库由包含该功能的新版酒馆启动器提供。
+插件名为 `dsh-tavern-adventure-medal`。包含本插件的新版 DSH Tavern 会自动安装并启用，可在「设置 → 酒馆插件」停用。原先通过 ZIP 安装的同名插件会就地升级，保留成就记录和停用状态。
+
+使用支持成就库的旧版酒馆时，可上传 [dsh-tavern-adventure-medal.zip](./dsh-tavern-adventure-medal.zip) 并按提示重启。
 
 想试效果时，打开一段游玩对话，再到「设置 → 酒馆启动器 → 成就测试」选择档位。测试只预览弹窗和卡牌。
+
+## 酒馆发行副本
+
+酒馆发行版将本仓库的 `dsh-tavern-adventure-medal/` 放入 `tavern-plugin/packages/`。共用卡面的 `launcher-assets/` 同步到 `tavern-plugin/packages/dsh-tavern/assets/`，因此切换回原版 DSH 后，酒馆启动器仍能展示已解锁的卡牌。
 
 本项目基于 [SilverLark257 的原版奖牌插件](https://github.com/SilverLark257/dsh-tavern-adventure-medal)。许可证见 [MIT License](./dsh-tavern-adventure-medal/LICENSE)。
