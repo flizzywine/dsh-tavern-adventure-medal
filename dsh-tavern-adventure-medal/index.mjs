@@ -35,7 +35,8 @@ export const inject = ['tavern']
 const NS = 'dsh-tavern-adventure-medal'
 const CARD_FIELDS = ['description', 'personality', 'scenario', 'first_mes', 'mes_example']
 const ACHIEVEMENTS = [
-  { id: 'bronze', rounds: 100, title: '渐入佳境' },
+  { id: 'starter', rounds: 50, title: '开局就上头' },
+  { id: 'bronze', rounds: 100, title: '百轮火力全开' },
   { id: 'silver', rounds: 300, title: '全程高能' },
   { id: 'gold', rounds: 500, title: '名场面制造机' },
   { id: 'rainbow', rounds: 1000, title: '这局直接封神' },
@@ -604,29 +605,34 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
     return result
   }
 
-  async function loadLedger() {
-    if (ledger) return ledger
-    const stored = await tavern.readPluginData()
-    if (stored?.version === 1 && Array.isArray(stored.achievements)) {
-      ledger = { ...stored, achievements: stored.achievements.map(tier => {
-        const current = ACHIEVEMENTS.find(item => item.id === tier?.id)
-        return current ? { ...tier, title: current.title } : tier
-      }) }
-      return ledger
-    }
-    if (stored != null) throw new Error('无法读取该版本的成就库')
+  async function highestIndexedRounds(highest) {
     const index = await readIndex(dataRoot).catch(error => {
       if (error.cause?.code === 'ENOENT') return []
       throw error
     })
-    let highest = 0
     for (const row of index) {
       if (!achievementChat(row) || !(row.preview?.turnCount > highest) || await isAutomationTestChat(dataRoot, row)) continue
       highest = displayTurns(row, row.preview).turnCount
     }
-    const initial = { version: 1, achievements: ACHIEVEMENTS.map(tier => ({ ...tier, earned: highest >= tier.rounds, unlockedAt: null })) }
-    await tavern.savePluginData({ data: initial })
-    ledger = initial
+    return highest
+  }
+
+  async function loadLedger() {
+    if (ledger) return ledger
+    const stored = await tavern.readPluginData()
+    if (stored != null && (stored.version !== 1 || !Array.isArray(stored.achievements))) throw new Error('无法读取该版本的成就库')
+    const records = new Map((stored?.achievements || []).filter(tier => tier?.id).map(tier => [tier.id, tier]))
+    const missing = ACHIEVEMENTS.filter(tier => !records.has(tier.id))
+    let highest = Math.max(0, ...ACHIEVEMENTS.filter(tier => records.get(tier.id)?.earned === true).map(tier => tier.rounds))
+    if (missing.some(tier => tier.rounds > highest)) highest = await highestIndexedRounds(highest)
+    const achievements = ACHIEVEMENTS.map(tier => {
+      const record = records.get(tier.id)
+      records.delete(tier.id)
+      return record ? { ...record, ...tier } : { ...tier, earned: highest >= tier.rounds, unlockedAt: null }
+    }).concat([...records.values()])
+    const updated = { ...stored, version: 1, achievements }
+    if (missing.length) await tavern.savePluginData({ data: updated })
+    ledger = updated
     return ledger
   }
 

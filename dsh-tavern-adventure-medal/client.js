@@ -11,6 +11,9 @@ window.__ModuleLoader__.load({
     const EASE_OUT = 'cubic-bezier(.23, 1, .32, 1)'
     const EASE_IN_OUT = 'cubic-bezier(.77, 0, .175, 1)'
     const CELEBRATIONS = {
+      starter: {
+        colors: ['#ffb8cb', '#ff85a5', '#ffd7aa', '#fff2eb'], shapes: ['spark', 'dot'], bursts: [16], spread: .63,
+      },
       bronze: {
         colors: ['#ffbc83', '#f9784b', '#ffe5bc', '#ffc35b'], shapes: ['spark', 'dot'], bursts: [22], spread: .72,
       },
@@ -41,6 +44,10 @@ window.__ModuleLoader__.load({
 .adventure-celebration[data-tier="silver"] {
   --adventure-trim: #d9eeff;
   --adventure-aura: radial-gradient(ellipse, #98c9ff70, #768dff29 48%, transparent 71%);
+}
+.adventure-celebration[data-tier="starter"] {
+  --adventure-trim: #ffd1df;
+  --adventure-aura: radial-gradient(ellipse, #ffa1c166, #f47b9f29 49%, transparent 72%);
 }
 .adventure-celebration[data-tier="gold"] {
   --adventure-trim: #ffe298;

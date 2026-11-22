@@ -85,7 +85,7 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   const first = start()
   await initialized
   const earned = () => saved.achievements.filter(tier => tier.earned)
-  assert.deepEqual(earned().map(tier => [tier.rounds, tier.unlockedAt]), [[100, null], [300, null]])
+  assert.deepEqual(earned().map(tier => [tier.rounds, tier.unlockedAt]), [[50, null], [100, null], [300, null]])
   assert.deepEqual(states, [])
   const beforePreview = structuredClone(saved)
   const rainbow = await first.preview({ gameId: 'a', id: 'rainbow' })
@@ -146,5 +146,32 @@ test('旧档只补成就，实时首次达成只发一次，重启后仍保留',
   assert.equal(missing.contextChars, undefined)
   assert.equal(restarted.claim({ gameId: 'a', id: 'gold' }), null)
   assert.equal(states.length, 1)
-  assert.deepEqual(earned().map(tier => tier.rounds), [100, 300, 500])
+  assert.deepEqual(earned().map(tier => tier.rounds), [50, 100, 300, 500])
+
+  const fourTiers = saved.achievements.filter(tier => tier.id !== 'starter')
+  saved = { version: 1, achievements: fourTiers }
+  await start().settle({ gameId: 'not-a-chat' })
+  assert.deepEqual(saved.achievements[0], { id: 'starter', rounds: 50, title: '开局就上头', earned: true, unlockedAt: null })
+  assert.deepEqual(saved.achievements.slice(1), fourTiers)
+  assert.equal(states.length, 1)
+
+  const lockedFourTiers = fourTiers.map(({ id, rounds, title }) => ({ id, rounds, title, earned: false, unlockedAt: null }))
+  saved = { version: 1, achievements: lockedFourTiers }
+  rows.splice(0, rows.length, chat('a', 50, cardA))
+  await writeIndex()
+  await start().settle({ gameId: 'not-a-chat' })
+  assert.deepEqual(earned().map(tier => tier.rounds), [50], 'A qualifying save is enough to backfill the new tier')
+  assert.equal(states.length, 1, 'Backfill is silent')
+
+  saved.achievements[0] = { ...saved.achievements[0], earned: false }
+  rows[0] = chat('a', 49, cardA)
+  await writeIndex()
+  const lowest = start()
+  await lowest.settle({ gameId: 'a' })
+  assert.equal(states.length, 1)
+  rows[0] = chat('a', 50, cardA)
+  await writeIndex()
+  await lowest.settle({ gameId: 'a' })
+  assert.deepEqual(states.at(-1), { gameId: 'a', name: 'achievement', data: { id: 'starter' } })
+  assert.equal(lowest.claim({ gameId: 'a', id: 'starter' }).title, '开局就上头')
 })
