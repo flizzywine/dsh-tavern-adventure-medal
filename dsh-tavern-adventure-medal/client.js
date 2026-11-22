@@ -242,8 +242,7 @@ window.__ModuleLoader__.load({
           const badge = art('span', 'badge', achievement.rounds)
           badge.setAttribute('aria-hidden', 'true')
           const ribbon = art('div', 'ribbon')
-          ribbon.append(art('strong', 'title', achievement.title),
-            art('span', 'congratulations', `这局游玩满 ${achievement.rounds} 轮啦！`))
+          ribbon.append(art('strong', 'title', achievement.title))
           const pills = art('div', 'pills')
           const number = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—'
           const date = ms => typeof ms === 'number' && ms > 0 && ms <= 8.64e15
@@ -263,14 +262,11 @@ window.__ModuleLoader__.load({
             pill.append(symbol, art('span', 'pill-label', label), field)
             pills.append(pill)
           }
-          const progress = art('div', 'progress')
           const sticker = art('div', 'sticker')
-          sticker.append(document.createTextNode('游玩满'), art('b', 'sticker-number', achievement.rounds),
-            document.createTextNode('轮！'))
-          progress.append(art('div', 'progress-label', (achievement.id === 'rainbow' ? '最高成就' : '当前成就') + ' · ' + achievement.title), sticker)
-          progress.setAttribute('aria-hidden', 'true')
+          sticker.append(document.createTextNode('游玩满 '), art('b', 'sticker-number', achievement.rounds),
+            document.createTextNode(' 轮！'))
           const footer = art('div', 'footer', (preview ? '成就预览' : 'DSH Tavern 游玩纪念') + ' · ' + date(achievement.unlockedAt))
-          card.append(motto, medal, stars, badge, ribbon, pills, progress, footer)
+          card.append(motto, medal, stars, badge, ribbon, pills, sticker, footer)
           layer.append(shade, aura, card)
           if (typeof layer.showPopover === 'function') layer.setAttribute('popover', 'manual')
           document.body.append(layer)
