@@ -251,7 +251,6 @@ window.__ModuleLoader__.load({
           const words = number(achievement.contextChars)
           for (const [icon, label, value] of [
             ['name', '人物卡', achievement.cardName || '—'],
-            ['turns', '游玩轮数', number(achievement.turnCount)],
             ['words', '总字数', words === '—' ? words : words + ' 字'],
             ['date', '开始游玩', date(achievement.startedAt)],
           ]) {
