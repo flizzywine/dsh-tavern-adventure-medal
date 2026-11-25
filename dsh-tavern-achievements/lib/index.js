@@ -1,15 +1,15 @@
-// dsh-tavern-adventure-medal —— 宿主侧（Node）
+// dsh-tavern-achievements —— 宿主侧（Node）
 // ============================================================================
-// 旧版奖牌的只读接口仍可用。新版在游玩结算时写入全局成就进度。
+// 旧版奖牌的只读接口仍可用。游玩结算和手动刷新都会写入全局成就进度。
 //
-//   1. dsh-tavern-adventure-medal/list
+//   1. dsh-tavern-achievements/list
 //      列出角色卡 + 每张卡下的游玩存档（来自酒馆的 index.json），
 //      以及入口 render 拿到的 sessionId 对应的「当前游玩」。
 //
-//   2. dsh-tavern-adventure-medal/stats
+//   2. dsh-tavern-achievements/stats
 //      读取指定存档的游玩轮数（与酒馆列表同口径）、正文码点数、角色卡持久上下文字数。
 //
-//   3. dsh-tavern-adventure-medal/counts
+//   3. dsh-tavern-achievements/counts
 //      按需读出某张卡下每段存档的轮数（同口径），供选择器列表显示。
 //
 // 读取方式：
@@ -29,10 +29,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const name = 'dsh-tavern-adventure-medal'
+export const name = 'dsh-tavern-achievements'
 export const inject = ['tavern']
 
-const NS = 'dsh-tavern-adventure-medal'
+const NS = name
 const CARD_FIELDS = ['description', 'personality', 'scenario', 'first_mes', 'mes_example']
 const ACHIEVEMENTS = [
   { id: 'starter', rounds: 50, title: '佳作' },
@@ -537,7 +537,7 @@ async function statsPayload(tavern, args) {
 }
 
 function achievementChat(row) {
-  return Boolean(row?.sessionId) && ['story', 'script'].includes(row.mode || 'story') && row.requestMode !== 'sillytavern'
+  return typeof row?.id === 'string' && row.id !== '' && ['story', 'script'].includes(row.mode || 'story') && row.requestMode !== 'sillytavern'
 }
 
 function createAchievementSnapshot(dataRoot) {
@@ -570,12 +570,10 @@ function createAchievementSnapshot(dataRoot) {
     const cardName = str(row.cardName) || stripExtension(fileName(cardPath))
     const [cover, chat] = await Promise.all([readCover(cardPath), fullChat])
     const startedAt = safeNumber(row.createdAt) || safeNumber(chat?.createdAt)
-    const hasTurns = Number.isFinite(row.preview?.turnCount) || Array.isArray(chat?.messages)
     return {
       ...(cardName ? { cardName } : {}),
       ...(cover ? { cover } : {}),
       ...(startedAt > 0 && startedAt <= 8.64e15 ? { startedAt } : {}),
-      ...(hasTurns ? { turnCount: displayTurns(chat ?? row, row.preview).turnCount } : {}),
       ...(Array.isArray(chat?.messages) ? { contextChars: contextCharsOf(chat) } : {}),
     }
   }
@@ -584,6 +582,18 @@ function createAchievementSnapshot(dataRoot) {
 function readAchievementChat(dataRoot, row) {
   // Stats reads may have cached the chat before this turn was saved.
   return readFullChat(dataRoot, row.id, { fresh: true }).catch(() => null)
+}
+
+async function achievementProgress(dataRoot, row) {
+  const indexed = row.preview?.turnCount
+  if (indexed != null && Number.isFinite(Number(indexed))) return displayTurns(row, row.preview)
+
+  const fullChat = await readAchievementChat(dataRoot, row)
+  if (!Array.isArray(fullChat?.messages)) return { turnCount: 0, fullChat }
+  const source = resolveAppSource(dataRoot)
+  const registry = pathToFileURL(path.join(source, 'tavern-plugin', 'lib', 'domain', 'tavern-conversation-registry.js'))
+  const { extractChatPreview } = await import(registry.href)
+  return { turnCount: extractChatPreview(fullChat)?.turnCount ?? 0, fullChat }
 }
 
 function createAchievementRecorder(tavern, dataRoot, snapshot) {
@@ -597,12 +607,19 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
     return result
   }
 
-  async function loadLedger() {
-    if (ledger) return ledger
-    const stored = await tavern.readPluginData()
+  async function loadLedger({ fresh = false } = {}) {
+    if (ledger && !fresh) return ledger
+    let stored = await tavern.readPluginData()
+    let needsSave = stored == null
+    if (needsSave) {
+      try {
+        stored = JSON.parse(await readFile(path.join(dataRoot, 'plugin-data', 'dsh-tavern-adventure-medal.json'), 'utf8'))
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+      }
+    }
     if (stored != null && (stored.version !== 1 || !Array.isArray(stored.achievements))) throw new Error('无法读取该版本的成就库')
     const records = new Map((stored?.achievements || []).filter(tier => tier?.id).map(tier => [tier.id, tier]))
-    let needsSave = false
     const achievements = ACHIEVEMENTS.map(tier => {
       const record = records.get(tier.id)
       records.delete(tier.id)
@@ -620,6 +637,41 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
     return ledger
   }
 
+  async function saveLedger(current, achievements) {
+    const saved = { ...current, achievements }
+    await tavern.savePluginData({ data: saved })
+    ledger = saved
+  }
+
+  async function unlockFromChat(row, { turnCount, fullChat }) {
+    return { earned: true, unlockedAt: Date.now(), turnCount, ...await snapshot(row, fullChat) }
+  }
+
+  function refresh() {
+    return serial(async () => {
+      const current = await loadLedger({ fresh: true })
+      const missing = current.achievements.slice(0, ACHIEVEMENTS.length).filter(tier => !tier.earned)
+      if (!missing.length) return { added: 0 }
+
+      const rows = await readIndex(dataRoot).catch(error => {
+        if (error.cause?.code === 'ENOENT') return []
+        throw error
+      })
+      const unlocked = new Map()
+      for (const row of rows.filter(achievementChat).sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a))) {
+        if (await isAutomationTestChat(dataRoot, row)) continue
+        const progress = await achievementProgress(dataRoot, row)
+        const reached = missing.filter(tier => !unlocked.has(tier.id) && progress.turnCount >= tier.rounds)
+        if (!reached.length) continue
+        const unlock = await unlockFromChat(row, progress)
+        for (const tier of reached) unlocked.set(tier.id, { ...tier, ...unlock })
+        if (unlocked.size === missing.length) break
+      }
+      if (unlocked.size) await saveLedger(current, current.achievements.map(tier => unlocked.get(tier.id) ?? tier))
+      return { added: unlocked.size }
+    })
+  }
+
   function settle(event) {
     if (event.greeting || !event.gameId) return
     return serial(async () => {
@@ -627,17 +679,14 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
       if (current.achievements.every(tier => tier.earned)) return
       const row = (await readIndex(dataRoot)).find(chat => chat?.sessionId === event.gameId)
       if (!achievementChat(row) || await isAutomationTestChat(dataRoot, row)) return
-      const fullChat = row.preview?.turnCount === undefined ? await readAchievementChat(dataRoot, row) : undefined
-      const { turnCount } = displayTurns(fullChat ?? row, row.preview)
-      const qualifies = tier => !tier.earned && turnCount >= tier.rounds
+      const progress = await achievementProgress(dataRoot, row)
+      const qualifies = tier => !tier.earned && progress.turnCount >= tier.rounds
       if (!current.achievements.some(qualifies)) return
-      const unlock = { earned: true, unlockedAt: Date.now(), ...await snapshot(row, fullChat) }
+      const unlock = await unlockFromChat(row, progress)
       const achievements = current.achievements.map(tier => qualifies(tier) ? { ...tier, ...unlock } : tier)
       const newest = achievements.findLast((tier, i) => tier !== current.achievements[i])
 
-      const saved = { version: 1, achievements }
-      await tavern.savePluginData({ data: saved })
-      ledger = saved
+      await saveLedger(current, achievements)
       notifications.set(event.gameId, { tier: newest, expiresAt: Date.now() + NOTIFICATION_TTL_MS })
       await tavern.publishState({ gameId: event.gameId, name: 'achievement', data: { id: newest.id } })
     })
@@ -650,7 +699,7 @@ function createAchievementRecorder(tavern, dataRoot, snapshot) {
     return Date.now() < pending.expiresAt ? pending.tier : null
   }
 
-  return { initialize: () => serial(loadLedger), settle, claim }
+  return { initialize: () => serial(loadLedger), refresh, settle, claim }
 }
 
 export function apply(ctx) {
@@ -660,26 +709,30 @@ export function apply(ctx) {
 
   ctx.effect(
     () => tavern.handle(NS + '/list', async args => await listPayload(tavern, str(args?.sessionId))),
-    'adventure-medal: list handler',
+    'achievements: list handler',
   )
   ctx.effect(
     () => tavern.handle(NS + '/stats', async args => await statsPayload(tavern, args)),
-    'adventure-medal: stats handler',
+    'achievements: stats handler',
   )
   ctx.effect(
     () => tavern.handle(NS + '/counts', async args => await countsPayload(args)),
-    'adventure-medal: counts handler',
+    'achievements: counts handler',
   )
   if (['onTurnSettled', 'readPluginData', 'savePluginData', 'publishState'].some(method => typeof tavern[method] !== 'function')) return
   const dataRoot = resolveDataRoot()
   const snapshot = createAchievementSnapshot(dataRoot)
   const achievements = createAchievementRecorder(tavern, dataRoot, snapshot)
   ctx.effect(
+    () => tavern.handle(NS + '/refresh-achievements', achievements.refresh),
+    'achievements: refresh achievements from saves',
+  )
+  ctx.effect(
     () => tavern.handle(NS + '/claim-achievement', achievements.claim),
-    'adventure-medal: claim achievement notification',
+    'achievements: claim achievement notification',
   )
   ctx.effect(() => {
-    void achievements.initialize().catch(error => console.warn('[adventure-medal] 成就库初始化失败:', error.message))
+    void achievements.initialize().catch(error => console.warn('[achievements] 成就库初始化失败:', error.message))
     return tavern.onTurnSettled(achievements.settle)
-  }, 'adventure-medal: unlock achievements')
+  }, 'achievements: unlock achievements')
 }

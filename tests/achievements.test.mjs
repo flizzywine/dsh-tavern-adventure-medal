@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { apply, name } from '../dsh-tavern-adventure-medal/lib/index.js'
+import { apply, name } from '../dsh-tavern-achievements/lib/index.js'
 
 const testSession = 'test-00000000-0000-0000-0000-000000000000'
 const chat = (sessionId, turnCount, extra = {}) => ({
@@ -63,7 +63,11 @@ test('旧档和未记时的补发记录不授予成就，真实解锁只发一�
   await writeChat(0, [])
   await writeChat(1, messages)
 
-  let saved = { version: 1, achievements: [{ id: 'starter', title: '佳作', rounds: 50, earned: true, unlockedAt: null }] }
+  const legacy = { version: 1, achievements: [{ id: 'starter', title: '佳作', rounds: 50, earned: true, unlockedAt: null }] }
+  const pluginData = join(data, 'plugin-data')
+  await mkdir(pluginData, { recursive: true })
+  await writeFile(join(pluginData, 'dsh-tavern-adventure-medal.json'), JSON.stringify(legacy))
+  let saved
   let notifySaved
   const states = []
   function start() {
